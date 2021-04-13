@@ -1,0 +1,395 @@
+#include <iostream>
+#include <stdio.h>
+#include <GL/glew.h>
+#include <SFML/Window.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <SFML/System/Time.hpp>
+
+using namespace std;
+
+// Kody shaderów
+const GLchar* vertexSource = R"glsl(
+#version 150 core
+in vec3 position;
+in vec3 color;
+
+ uniform mat4 model;
+ uniform mat4 view;
+ uniform mat4 proj;
+
+out vec3 Color;
+void main()
+{
+Color = color;
+gl_Position = proj * view * model * vec4(position,1.0);
+}
+
+)glsl";
+
+const GLchar* fragmentSource = R"glsl(
+#version 150 core
+in vec3 Color;
+out vec4 outColor;
+void main()
+{
+outColor = vec4(Color, 1.0);
+}
+)glsl";
+
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+float rotation = 0.0;
+double yaw = -90; //obrót względem osi Y
+double pitch = 0; //obrót względem osi X
+float lastX = 800.0f / 2.0;
+float lastY = 600.0 / 2.0;
+bool firstMouse = true;
+
+
+
+void camera(GLint uniview)
+{
+    float cameraSpeed = 0.001f;
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
+        cameraPos += cameraSpeed * cameraFront;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+        cameraPos -= cameraSpeed * cameraFront;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+    {
+        rotation -= cameraSpeed;
+        cameraFront.x = sin(rotation);
+        cameraFront.z = -cos(rotation);
+    }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+    {
+        rotation += cameraSpeed;
+        cameraFront.x = sin(rotation);
+        cameraFront.z = -cos(rotation);
+    }
+    glm::mat4 view;
+    view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    glUniformMatrix4fv(uniview, 1, GL_FALSE, glm::value_ptr(view));
+
+}
+
+void ustawKamereMysz(GLint uniview,float elpsedtime, const sf::Window& window)
+{
+    sf::Vector2i localPosition = sf::Mouse::getPosition(window);
+    cout << localPosition.x << " " << localPosition.y << endl;
+    if (firstMouse)
+    {
+        lastX = localPosition.x;
+        lastY = localPosition.y;
+        firstMouse = false;
+    }
+  
+
+    float xoffset = localPosition.x - lastX;
+    float yoffset = localPosition.y - lastY;
+    lastX = localPosition.x;
+    lastY = localPosition.y;
+
+    float sensitivity = 0.1f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch -= yoffset;
+
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
+
+    
+}
+
+sf::Clock clock;
+sf::Time time;
+
+int main()
+{
+   
+
+    sf::ContextSettings settings;
+    settings.depthBits = 24;
+    settings.stencilBits = 8;
+
+    // Okno renderingu
+    sf::Window window(sf::VideoMode(800, 600, 32), "OpenGL", sf::Style::Titlebar | sf::Style::Close, settings);
+    window.setMouseCursorGrabbed(true); //przechwycenie kursora myszy w oknie ------------
+    window.setMouseCursorVisible(false); //ukrycie kursora myszy ---------------------
+
+    // Inicjalizacja GLEW
+    glewExperimental = GL_TRUE;
+    glewInit();
+
+    // Utworzenie VAO (Vertex Array Object)
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+   
+
+
+    // GLuint punkty_=6;
+     // Współrzędne kwadratu, brak zastosowania bufora, występują powtórzenia wierzchołków
+     //GLfloat* vertices = new GLfloat[punkty_ * 6];
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+   // GLenum shape = GL_POINTS;
+    //int punkty_ = 6;
+
+
+
+
+
+    GLfloat vertices[] = {
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
+0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f,
+-0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+-0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+-0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+-0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+-0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+-0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+0.5f, -0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+-0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+-0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 0.0f,
+0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
+-0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f,
+-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f
+
+
+    };
+
+    /* GLfloat color[] = {
+      
+     };
+     */
+
+     // glm::mat4 model = glm::mat4(1.0f);
+     // model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+     // GLint uniTrans = glGetUniformLocation(shaderProgram, "model");
+     // glUniformMatrix4fv(uniTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+       // Utworzenie i skompilowanie shadera wierzchołków
+    GLuint vertexShader =
+        glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexSource, NULL);
+    glCompileShader(vertexShader);
+
+    // Sprawdzenie poprawności kompilacji shadera wierzchołków
+    GLint status_vertex;
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status_vertex);
+
+    if (status_vertex != GL_TRUE) //warunek sprawdzajacy poprawnosc kodu
+    {
+
+        char buffer[512];
+
+        glGetProgramInfoLog(vertexShader, 512, NULL, buffer);
+        std::cout << "Compilation vertexShader error: ";
+            cout<<buffer << endl;
+
+    }
+    else
+    {
+        cout << "Compliation vertexShader OK " << endl;
+    }
+
+
+
+    // Utworzenie i skompilowanie shadera fragmentów
+    GLuint fragmentShader =
+        glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
+    glCompileShader(fragmentShader);
+
+
+    // Sprawdzenie poprawnosci kompilacji shadera fragmentów
+    GLint status_fragment;
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status_fragment);
+    if (status_fragment != GL_TRUE) {
+
+        cout << "Compilation fragmentShader error: " << endl;
+
+        char buffer[512];
+
+        glGetProgramInfoLog(fragmentShader, 512, NULL, buffer);
+        std::cout << buffer << std::endl;
+
+
+       
+    }
+    else
+    {
+        cout << "Compilation fragmentShader OK " << endl;
+    }
+
+
+    // Zlinkowanie obu shaderów w jeden wspólny program
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glBindFragDataLocation(shaderProgram, 0, "outColor");
+    glLinkProgram(shaderProgram);
+    glUseProgram(shaderProgram);
+
+    // Specifikacja formatu danych wierzchołkowych
+    GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
+    GLint colAttrib = glGetAttribLocation(shaderProgram, "color");
+    glEnableVertexAttribArray(colAttrib);
+    glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    //sf::Event event;
+
+
+    //Rotacja płaska
+    /*
+    glm::mat4 model;
+    model = glm::rotate(model, glm::radians(180.0f),
+        glm::vec3(0.0f, 0.0f, 1.0f));
+
+    glm::vec4 result = model *
+        glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    cout << "(" << result.x << " " << result.y << " "
+        << result.z << ")" << endl;
+
+    GLint uniTrans = glGetUniformLocation(shaderProgram, "model");
+    glUniformMatrix4fv(uniTrans, 1, GL_FALSE,
+        glm::value_ptr(model));
+        */
+
+    glm::mat4 model = glm::mat4(1.0f);//macierz modelu
+    model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    GLint uniTrans = glGetUniformLocation(shaderProgram, "model");
+
+    glUniformMatrix4fv(uniTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+    glm::mat4 view;
+    view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.0f / 800.0f, 0.06f, 100.0f);
+
+    GLint uniView = glGetUniformLocation(shaderProgram, "view");
+    glUniformMatrix4fv(uniView, 1, GL_FALSE, glm::value_ptr(view));
+
+    GLint uniProj = glGetUniformLocation(shaderProgram, "proj");
+    glUniformMatrix4fv(uniProj, 1, GL_FALSE, glm::value_ptr(proj));
+
+   
+
+
+    glEnable(GL_DEPTH_TEST);
+
+
+    // Rozpoczęcie pętli zdarzeń
+    bool running = true;
+    while (running) {
+        sf::Event windowEvent;
+        while (window.pollEvent(windowEvent)) {
+            switch (windowEvent.type)
+            {
+            case sf::Event::Closed:
+                running = false;
+                break;
+            case sf::Event::KeyPressed:
+                switch (windowEvent.key.code)
+                {
+                case sf::Keyboard::Escape:
+                    std::cout << "Przycisniety zostal przycisk ESCAPE" << std::endl;
+                    running = false;
+                    break;
+
+
+                }
+            case sf::Event::MouseMoved:
+               
+                ustawKamereMysz(uniView, time.asMicroseconds(), window);
+                break;
+                /*
+            case sf::Event::MouseMoved:
+                std::cout << "Mysza została ruszona na pozycje: ";
+                std::cout << windowEvent.mouseMove.y << std::endl;
+                if (windowEvent.mouseMove.y > 2)
+                    punkty_ = windowEvent.mouseMove.y;
+                //Making_Geometric_Shape(vbo, punkty_);
+                break;
+
+                */
+
+                //if(windowEvent.mouseMove.y>mouse_y)
+
+            }
+        }
+        camera(uniView);
+        
+
+        // Nadanie scenie koloru czarnego
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+
+        // Rysowanie figur za pomocą trojkątów
+        glDrawArrays(GL_TRIANGLES, 0, 12*3);
+        // Wymiana buforów tylni/przedni
+        //window.setFramerateLimit(20);
+        window.display();
+    }
+
+
+
+
+
+    // Kasowanie programu i czyszczenie buforów
+    glDeleteProgram(shaderProgram);
+    glDeleteShader(fragmentShader);
+    glDeleteShader(vertexShader);
+    glDeleteBuffers(1, &vbo);
+    //glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
+    // Zamknięcie okna renderingu
+    window.close();
+    return 0;
+}
