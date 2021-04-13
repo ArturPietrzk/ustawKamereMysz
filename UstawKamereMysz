@@ -61,15 +61,18 @@ void camera(GLint uniview)
         cameraPos -= cameraSpeed * cameraFront;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
     {
-        rotation -= cameraSpeed;
-        cameraFront.x = sin(rotation);
-        cameraFront.z = -cos(rotation);
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+      //  rotation -= cameraSpeed;
+       // cameraFront.x = sin(rotation);
+       // cameraFront.z = -cos(rotation);
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
     {
-        rotation += cameraSpeed;
-        cameraFront.x = sin(rotation);
-        cameraFront.z = -cos(rotation);
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+
+       // rotation += cameraSpeed;
+       // cameraFront.x = sin(rotation);
+       // cameraFront.z = -cos(rotation);
     }
     glm::mat4 view;
     view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
@@ -81,13 +84,8 @@ void ustawKamereMysz(GLint uniview,float elpsedtime, const sf::Window& window)
 {
     sf::Vector2i localPosition = sf::Mouse::getPosition(window);
     cout << localPosition.x << " " << localPosition.y << endl;
-    if (firstMouse)
-    {
-        lastX = localPosition.x;
-        lastY = localPosition.y;
-        firstMouse = false;
-    }
-  
+    
+    
 
     float xoffset = localPosition.x - lastX;
     float yoffset = localPosition.y - lastY;
@@ -115,8 +113,8 @@ void ustawKamereMysz(GLint uniview,float elpsedtime, const sf::Window& window)
     
 }
 
-sf::Clock clock;
-sf::Time time;
+
+
 
 int main()
 {
@@ -322,6 +320,8 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 
+    sf::Clock clock;
+    sf::Time time;
 
     // Rozpoczęcie pętli zdarzeń
     bool running = true;
@@ -344,8 +344,11 @@ int main()
 
                 }
             case sf::Event::MouseMoved:
-               
                 ustawKamereMysz(uniView, time.asMicroseconds(), window);
+                time = clock.getElapsedTime();
+                    clock.restart();
+                    ustawKamereMysz(uniView, time.asMicroseconds(), window);
+              
                 break;
                 /*
             case sf::Event::MouseMoved:
@@ -374,7 +377,7 @@ int main()
         // Rysowanie figur za pomocą trojkątów
         glDrawArrays(GL_TRIANGLES, 0, 12*3);
         // Wymiana buforów tylni/przedni
-        //window.setFramerateLimit(20);
+        window.setFramerateLimit(150);
         window.display();
     }
 
